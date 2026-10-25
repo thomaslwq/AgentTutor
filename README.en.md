@@ -1,8 +1,8 @@
 # AgentTutor
 
-**An all-in-one learner-facing web app for an AI Agent training institution — learning platform, hands-on platform, and student community.**
+[简体中文](README.md) · [**English**](README.en.md)
 
-> [中文](README.md) | English
+**An all-in-one learner-facing web app for an AI Agent training institution — learning platform, hands-on platform, and student community.**
 
 AgentTutor is built for students enrolled in the training camp. It brings a 24/7 AI digital tutor, multi-agent project practice, and community check-ins & peer review into a single workspace: on the left, students ask the AI tutor questions, track course progress, and review assignment feedback; on the right, they follow role assignments and the task board of a multi-agent project — learning while building.
 
