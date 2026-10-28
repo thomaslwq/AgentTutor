@@ -32,7 +32,9 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - run: npm ci
+      # 锁文件在 Windows 生成，缺失 Linux 平台可选依赖（@emnapi/*），npm ci 会失败；
+      # 改用 npm install 让 CI 按当前平台补齐可选依赖
+      - run: npm install --no-audit --no-fund
 
       # 标准 vite 构建（绕过 MiaoDa 平台的 build.sh），
       # CLIENT_BASE_PATH 同时驱动 vite base 与 router basename
