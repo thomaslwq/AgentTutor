@@ -97,7 +97,7 @@ npm run dev
 
 启动后访问 <http://localhost:8001>。
 
-> **Windows 提示**：`npm run dev` 依赖 `scripts/dev.mjs` 中的 `lsof`，`npm run build` 依赖 `bash`。在 Windows 上建议使用 WSL / Git Bash；也可直接运行 `npx vite --port 8001 --host 0.0.0.0` 启动开发服务器。
+> **Windows 提示**：`npm run dev` 已兼容 Windows（端口清理自动切换为 `netstat` + `taskkill`），可直接在 PowerShell 或 Git Bash 运行。`npm run build` 仍依赖 `bash`，Windows 下建议使用 WSL / Git Bash，或直接运行 `npx vite build`。
 
 ### 可用脚本
 

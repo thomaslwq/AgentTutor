@@ -97,7 +97,7 @@ npm run dev
 
 Then open <http://localhost:8001>.
 
-> **Windows note**: `npm run dev` relies on `lsof` inside `scripts/dev.mjs`, and `npm run build` relies on `bash`. On Windows, use WSL / Git Bash, or start the dev server directly with `npx vite --port 8001 --host 0.0.0.0`.
+> **Windows note**: `npm run dev` now works natively on Windows (port cleanup automatically falls back to `netstat` + `taskkill`), so you can run it from PowerShell or Git Bash. `npm run build` still relies on `bash`; on Windows, use WSL / Git Bash, or run `npx vite build` directly.
 
 ### Available Scripts
 

@@ -1,16 +1,28 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Search, LayoutDashboard, BookOpen, Kanban, Users } from 'lucide-react';
+import {
+  Search,
+  UserRoundCheck,
+  ShoppingBag,
+  GraduationCap,
+  Kanban,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import { useState } from 'react';
 
+import { useAppStore } from '@/store/AppContext';
+
 const NAV_ITEMS = [
-  { path: '/', label: '工作台', icon: LayoutDashboard },
-  { path: '/curriculum', label: '课程体系', icon: BookOpen },
+  { path: '/', label: '选导师', icon: UserRoundCheck },
+  { path: '/courses', label: '课程商城', icon: ShoppingBag },
+  { path: '/learning', label: '我的学习', icon: GraduationCap },
   { path: '/platform', label: '实战平台', icon: Kanban },
   { path: '/community', label: '学员社群', icon: Users },
 ];
 
 export default function Header() {
   const { pathname } = useLocation();
+  const { state } = useAppStore();
   const [keyword, setKeyword] = useState('');
 
   return (
@@ -50,8 +62,16 @@ export default function Header() {
             })}
           </nav>
 
-          {/* 搜索 + 头像 */}
-          <div className="flex-1 flex items-center justify-end gap-4">
+          {/* 余额 + 搜索 + 头像 */}
+          <div className="flex-1 flex items-center justify-end gap-3 md:gap-4">
+            <NavLink
+              to="/wallet"
+              className="shrink-0 h-9 px-3.5 rounded-full bg-white/10 border border-white/10 inline-flex items-center gap-1.5 text-sm font-medium text-white hover:bg-white/15 transition-colors"
+              title="进入钱包"
+            >
+              <Wallet className="size-4 text-accent" />
+              ¥{state.balance}
+            </NavLink>
             <div className="relative w-full max-w-xs hidden lg:block">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/50" />
               <input
@@ -71,7 +91,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* 移动端底部导航占位 - 顶部导航在移动端保留品牌 + 头像，导航用底部 tab */}
+      {/* 移动端底部导航 */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[rgb(30_58_95)] border-t border-white/10 z-50">
         <div className="flex items-center justify-around py-2">
           {NAV_ITEMS.map((item) => {
@@ -82,12 +102,12 @@ export default function Header() {
                 key={item.path}
                 to={item.path}
                 end={item.path === '/'}
-                className={`flex flex-col items-center gap-0.5 px-3 py-1.5 ${
+                className={`flex flex-col items-center gap-0.5 px-2 py-1.5 ${
                   isActive ? 'text-accent' : 'text-white/60'
                 }`}
               >
                 <Icon className="size-5" />
-                <span className="text-xs">{item.label}</span>
+                <span className="text-[11px]">{item.label}</span>
               </NavLink>
             );
           })}

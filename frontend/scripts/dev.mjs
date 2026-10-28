@@ -14,6 +14,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 process.chdir(ROOT);
 
+const IS_WINDOWS = process.platform === 'win32';
+const VITE_BIN = path.join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js');
+
 const LOG_DIR = process.env.LOG_DIR || 'logs';
 const CLIENT_DEV_PORT = process.env.CLIENT_DEV_PORT || '8001';
 
@@ -33,8 +36,39 @@ function log(msg) {
   try { process.stdout.write(line); } catch {}
 }
 
-/** 清理端口占用：lsof -ti:<port> | kill -9 */
+/** 清理端口占用：Unix 用 lsof，Windows 用 netstat + taskkill */
 function killOrphansByPort(port) {
+  if (IS_WINDOWS) {
+    try {
+      const out = execSync('netstat -ano -p tcp', {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).toString();
+      const pids = [
+        ...new Set(
+          out
+            .split('\n')
+            .map((line) => line.trim().split(/\s+/))
+            .filter(
+              (cols) =>
+                cols.includes('LISTENING') &&
+                cols[1]?.endsWith(`:${port}`) &&
+                cols[cols.length - 1],
+            )
+            .map((cols) => cols[cols.length - 1]),
+        ),
+      ];
+      for (const pid of pids) {
+        try {
+          execSync(`taskkill /PID ${pid} /T /F`, { stdio: 'ignore' });
+          log(`killed orphan pid=${pid} on :${port}`);
+        } catch {}
+      }
+      return pids;
+    } catch {
+      return [];
+    }
+  }
+
   try {
     const out = execSync(`lsof -ti:${port}`, { stdio: ['ignore', 'pipe', 'ignore'] })
       .toString()
@@ -53,6 +87,20 @@ function killOrphansByPort(port) {
   }
 }
 
+/** Windows 需要用 taskkill 结束进程树，Unix 用进程组信号 */
+function stopChild(child, signal = 'SIGTERM') {
+  if (!child.pid) return;
+  if (IS_WINDOWS) {
+    try {
+      execSync(`taskkill /PID ${child.pid} /T /F`, { stdio: 'ignore' });
+    } catch {}
+    return;
+  }
+  try {
+    process.kill(-child.pid, signal);
+  } catch {}
+}
+
 const managed = [];
 
 function startProcess({ name, command, args, logFileName }) {
@@ -65,7 +113,7 @@ function startProcess({ name, command, args, logFileName }) {
     shell: false,
     cwd: ROOT,
     env: process.env,
-    detached: true,
+    detached: !IS_WINDOWS,
   });
 
   const pipeLines = (stream) => {
@@ -89,8 +137,8 @@ killOrphansByPort(CLIENT_DEV_PORT);
 
 startProcess({
   name: 'client',
-  command: 'npx',
-  args: ['vite', '--port', CLIENT_DEV_PORT, '--host', '0.0.0.0'],
+  command: process.execPath,
+  args: [VITE_BIN, '--port', CLIENT_DEV_PORT, '--host', '0.0.0.0'],
   logFileName: 'client.std.log',
 });
 
@@ -101,13 +149,11 @@ function cleanup(signal) {
   log(`cleanup triggered by ${signal}`);
 
   for (const { child } of managed) {
-    if (!child.pid) continue;
-    try { process.kill(-child.pid, signal || 'SIGTERM'); } catch {}
+    stopChild(child, signal || 'SIGTERM');
   }
   setTimeout(() => {
     for (const { child } of managed) {
-      if (!child.pid) continue;
-      try { process.kill(-child.pid, 'SIGKILL'); } catch {}
+      stopChild(child, 'SIGKILL');
     }
     killOrphansByPort(CLIENT_DEV_PORT);
     process.exit(0);

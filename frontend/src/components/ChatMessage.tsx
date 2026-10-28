@@ -3,9 +3,20 @@ import type { IMessage } from '@/data/messages';
 
 interface ChatMessageProps {
   message: IMessage;
+  /** 导师头像字母，默认 T */
+  tutorInitial?: string;
+  /** 导师头像渐变色，传入后替代默认深蓝纯色 */
+  tutorGradient?: [string, string];
+  /** 导师真人头像图，传入后替代字母/渐变 */
+  tutorAvatar?: string;
 }
 
-export default function ChatMessage({ message }: ChatMessageProps) {
+export default function ChatMessage({
+  message,
+  tutorInitial = 'T',
+  tutorGradient,
+  tutorAvatar,
+}: ChatMessageProps) {
   const isStudent = message.role === 'student';
 
   return (
@@ -18,11 +29,23 @@ export default function ChatMessage({ message }: ChatMessageProps) {
       {/* 头像 */}
       <div
         className={cn(
-          'shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold',
-          isStudent ? 'bg-accent' : 'bg-primary'
+          'shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold overflow-hidden',
+          !isStudent && !tutorGradient && 'bg-primary',
+          isStudent && 'bg-accent'
         )}
+        style={
+          !isStudent && tutorGradient
+            ? { background: `linear-gradient(135deg, ${tutorGradient[0]}, ${tutorGradient[1]})` }
+            : undefined
+        }
       >
-        {isStudent ? '学' : 'T'}
+        {isStudent ? (
+          '学'
+        ) : tutorAvatar ? (
+          <img src={tutorAvatar} alt={tutorInitial} className="w-full h-full object-cover" loading="lazy" draggable={false} />
+        ) : (
+          tutorInitial
+        )}
       </div>
       {/* 气泡 */}
       <div

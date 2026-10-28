@@ -4,10 +4,11 @@ import { Users, Bot, Send } from 'lucide-react';
 
 import { MOCK_PROJECTS, type IProject } from '@/data/projects';
 import { MOCK_TASKS, type ITask, type TaskStatus } from '@/data/tasks';
-import { MOCK_AGENT_ROLES } from '@/data/agent-roles';
+import { MOCK_AGENT_ROLES, type IAgentRole } from '@/data/agent-roles';
 import { MOCK_COMMUNICATIONS } from '@/data/communications';
 
 import RoleCard from '@/components/RoleCard';
+import PracticeDialog from '@/components/PracticeDialog';
 import TaskKanban from '@/components/TaskKanban';
 import StatusBadge from '@/components/StatusBadge';
 
@@ -28,6 +29,7 @@ export default function PlatformPage() {
   const [tasks, setTasks] = useState<ITask[]>(MOCK_TASKS);
   const [comms, setComms] = useState(MOCK_COMMUNICATIONS);
   const [newMsg, setNewMsg] = useState('');
+  const [practiceRole, setPracticeRole] = useState<IAgentRole | null>(null);
 
   const selectedProject = useMemo(
     () => MOCK_PROJECTS.find((p) => p.id === selectedId)!,
@@ -123,10 +125,19 @@ export default function PlatformPage() {
 
           {/* 智能体角色 */}
           <div className="rounded-2xl bg-card border border-border/40 p-5 shadow-sm">
-            <h3 className="font-semibold text-foreground mb-4">智能体角色</h3>
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-4">
+              <h3 className="font-semibold text-foreground">智能体角色</h3>
+              <p className="text-xs text-muted-foreground">
+                点击「开始陪练」，与 AI 角色 1v1 对练并生成维度评分报告
+              </p>
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {MOCK_AGENT_ROLES.map((role) => (
-                <RoleCard key={role.id} role={role} />
+                <RoleCard
+                  key={role.id}
+                  role={role}
+                  onPractice={() => setPracticeRole(role)}
+                />
               ))}
             </div>
           </div>
@@ -196,6 +207,14 @@ export default function PlatformPage() {
             </form>
           </div>
         </div>
+
+        <PracticeDialog
+          role={practiceRole}
+          open={Boolean(practiceRole)}
+          onOpenChange={(next) => {
+            if (!next) setPracticeRole(null);
+          }}
+        />
       </div>
     </div>
   );
