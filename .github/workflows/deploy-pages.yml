@@ -43,10 +43,24 @@ jobs:
         env:
           CLIENT_BASE_PATH: /AgentTutor/
 
-      # 替换 HTML 模板占位符（标准 vite build 不走 MiaoDa 平台的元数据注入）
+      # 替换 HTML 模板占位符（标准 vite build 不走 MiaoDa 平台的元数据注入）。
+      # 必须全部替换：__BASENAME__ 若残留 "{{basename}}" 会覆盖路由前缀导致白屏
       - name: Fill HTML metadata
         run: |
-          sed -i 's/{{appName}}/AgentTutor 数字人导师/g; s/{{appDescription}}/AI 数字人导师培训平台/g; s|{{appAvatar}}|/AgentTutor/tutors/chenmo-avatar.jpg|g' dist/client/index.html
+          sed -i \
+            -e 's|{{{appAvatar}}}|/AgentTutor/tutors/chenmo-avatar.jpg|g' \
+            -e 's|{{appAvatar}}|/AgentTutor/tutors/chenmo-avatar.jpg|g' \
+            -e 's|{{appName}}|AgentTutor 数字人导师|g' \
+            -e 's|{{appDescription}}|AI 数字人导师培训平台|g' \
+            -e 's|{{basename}}|/AgentTutor/|g' \
+            -e 's|{{environment}}|production|g' \
+            -e 's|{{appId}}||g' \
+            -e 's|{{userId}}||g' \
+            -e 's|{{tenantId}}||g' \
+            -e 's|{{userName}}||g' \
+            -e 's|{{csrfToken}}||g' \
+            dist/client/index.html
+          grep -c '{{' dist/client/index.html || echo "all placeholders replaced"
 
       # SPA 刷新兜底：Pages 上访问子路由时回退到 index.html
       - name: SPA 404 fallback
