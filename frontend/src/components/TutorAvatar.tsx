@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { cn } from '@/lib/utils';
 
 interface TutorAvatarProps {
@@ -20,6 +22,10 @@ export default function TutorAvatar({
   online = false,
   className,
 }: TutorAvatarProps) {
+  // 图片加载失败时回退为渐变底 + 首字（子路径部署 / 断网兜底）
+  const [imgFailed, setImgFailed] = useState(false);
+  const showImg = src && !imgFailed;
+
   return (
     <div className={cn('relative shrink-0', className)} style={{ width: size, height: size }}>
       <div
@@ -29,13 +35,14 @@ export default function TutorAvatar({
           fontSize: Math.round(size * 0.36),
         }}
       >
-        {src ? (
+        {showImg ? (
           <img
             src={src}
             alt={initial}
             className="w-full h-full object-cover"
             loading="lazy"
             draggable={false}
+            onError={() => setImgFailed(true)}
           />
         ) : (
           initial

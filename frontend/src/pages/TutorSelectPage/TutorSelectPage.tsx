@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Sparkles, ShoppingBag, MessageCircleQuestion, Check, Users } from 'lucide-react';
@@ -81,6 +82,8 @@ interface TutorCardProps {
 function TutorCard({ tutor, isSelected, onSelect }: TutorCardProps) {
   // 该导师主讲课程数（从课程数据反查推荐导师）
   const courseCount = MOCK_COURSES.filter((c) => c.recommendedTutorId === tutor.id).length;
+  // 半身形象图加载失败时回退为品牌渐变底
+  const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <div
@@ -89,13 +92,28 @@ function TutorCard({ tutor, isSelected, onSelect }: TutorCardProps) {
       }`}
     >
       {/* 数字人形象 */}
-      <div className="relative h-40 rounded-xl overflow-hidden mb-4">
-        <img
-          src={tutor.portrait}
-          alt={`${tutor.name} 数字人形象`}
-          draggable={false}
-          className="w-full h-full object-cover object-top"
-        />
+      <div
+        className="relative h-40 rounded-xl overflow-hidden mb-4"
+        style={
+          imgFailed
+            ? { background: `linear-gradient(135deg, ${tutor.gradient[0]}, ${tutor.gradient[1]})` }
+            : undefined
+        }
+      >
+        {!imgFailed && (
+          <img
+            src={tutor.portrait}
+            alt={`${tutor.name} 数字人形象`}
+            draggable={false}
+            className="w-full h-full object-cover object-top"
+            onError={() => setImgFailed(true)}
+          />
+        )}
+        {imgFailed && (
+          <span className="absolute inset-0 flex items-center justify-center text-white/90 text-4xl font-bold">
+            {tutor.avatarInitial}
+          </span>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
         {tutor.isOnline && (
           <span className="absolute right-2.5 top-2.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/90 text-white text-[11px] font-medium backdrop-blur-sm">

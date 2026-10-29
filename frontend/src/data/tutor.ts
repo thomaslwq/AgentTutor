@@ -1,4 +1,11 @@
 // EXPORTS: ITutor, MOCK_TUTORS, getTutorById
+
+/** 拼接 public 资源路径：自动携带部署 base（本地为 /，GitHub Pages 为 /AgentTutor/），与路由 basename 同源 */
+function assetUrl(p: string): string {
+  const base = process.env.CLIENT_BASE_PATH || '/'
+  return base.replace(/\/$/, '') + p
+}
+
 export interface ITutor {
   id: string
   name: string
@@ -31,8 +38,8 @@ export const MOCK_TUTORS: ITutor[] = [
     greeting: '你好，我是陈默。架构的本质是取舍——我们一步一步，把复杂问题拆简单。',
     avatarInitial: '默',
     gradient: ['#1E3A5F', '#E87722'],
-    avatar: '/tutors/chenmo-avatar.jpg',
-    portrait: '/tutors/chenmo-portrait.jpg',
+    avatar: assetUrl('/tutors/chenmo-avatar.jpg'),
+    portrait: assetUrl('/tutors/chenmo-portrait.jpg'),
     isOnline: true,
     totalAnswers: 1286,
     satisfactionRate: 96,
@@ -48,8 +55,8 @@ export const MOCK_TUTORS: ITutor[] = [
     greeting: '嗨，我是小暖～别怕难，再小的进步也算数，我们一起学！',
     avatarInitial: '暖',
     gradient: ['#E87722', '#F472B6'],
-    avatar: '/tutors/xiaonuan-avatar.jpg',
-    portrait: '/tutors/xiaonuan-portrait.jpg',
+    avatar: assetUrl('/tutors/xiaonuan-avatar.jpg'),
+    portrait: assetUrl('/tutors/xiaonuan-portrait.jpg'),
     isOnline: true,
     totalAnswers: 987,
     satisfactionRate: 98,
@@ -65,8 +72,8 @@ export const MOCK_TUTORS: ITutor[] = [
     greeting: '我是老K。少聊概念，直接上代码——先跑通，再跑好。',
     avatarInitial: 'K',
     gradient: ['#3B82F6', '#8B5CF6'],
-    avatar: '/tutors/laok-avatar.jpg',
-    portrait: '/tutors/laok-portrait.jpg',
+    avatar: assetUrl('/tutors/laok-avatar.jpg'),
+    portrait: assetUrl('/tutors/laok-portrait.jpg'),
     isOnline: true,
     totalAnswers: 1532,
     satisfactionRate: 95,
@@ -82,8 +89,8 @@ export const MOCK_TUTORS: ITutor[] = [
     greeting: '你好，我是顾远。管理的本质是激发人、用好事——AI 时代，这两件事都要重新学。',
     avatarInitial: '顾',
     gradient: ['#2FAE6E', '#1E3A5F'],
-    avatar: '/tutors/guyan-avatar.jpg',
-    portrait: '/tutors/guyan-portrait.jpg',
+    avatar: assetUrl('/tutors/guyan-avatar.jpg'),
+    portrait: assetUrl('/tutors/guyan-portrait.jpg'),
     isOnline: true,
     totalAnswers: 864,
     satisfactionRate: 97,

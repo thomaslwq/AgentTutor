@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { cn } from '@/lib/utils';
 import type { IMessage } from '@/data/messages';
 
@@ -18,6 +20,8 @@ export default function ChatMessage({
   tutorAvatar,
 }: ChatMessageProps) {
   const isStudent = message.role === 'student';
+  // 导师头像图加载失败时回退为渐变底 + 首字
+  const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <div
@@ -41,8 +45,15 @@ export default function ChatMessage({
       >
         {isStudent ? (
           '学'
-        ) : tutorAvatar ? (
-          <img src={tutorAvatar} alt={tutorInitial} className="w-full h-full object-cover" loading="lazy" draggable={false} />
+        ) : tutorAvatar && !imgFailed ? (
+          <img
+            src={tutorAvatar}
+            alt={tutorInitial}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            draggable={false}
+            onError={() => setImgFailed(true)}
+          />
         ) : (
           tutorInitial
         )}

@@ -469,6 +469,9 @@ function DigitalHumanPanel({
                 src={tutor.portrait}
                 alt={`${tutor.name} 数字人形象`}
                 draggable={false}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
                 className={`w-full h-full object-cover object-top transition-transform duration-700 ${
                   speaking ? 'scale-105' : 'scale-100'
                 }`}
@@ -750,7 +753,15 @@ function ChatDock({
                 background: `linear-gradient(135deg, ${tutor.gradient[0]}, ${tutor.gradient[1]})`,
               }}
             >
-              <img src={tutor.avatar} alt={tutor.name} className="w-full h-full object-cover" draggable={false} />
+              <img
+                src={tutor.avatar}
+                alt={tutor.name}
+                draggable={false}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+                className="w-full h-full object-cover"
+              />
             </div>
             <div className="bg-secondary text-foreground rounded-2xl rounded-bl-md px-4 py-3">
               <div className="flex gap-1">
