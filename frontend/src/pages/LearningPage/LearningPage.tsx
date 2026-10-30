@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, FormEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
@@ -19,6 +19,8 @@ import {
   RotateCcw,
   ListChecks,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 import { MOCK_COURSES, type ICourse, type IChapter } from '@/data/courses';
@@ -42,12 +44,98 @@ function nowTime(): string {
   return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
 }
 
-/** 生成当前课的演示要点（原型 mock：按章节标题派生 3 条） */
-function getLessonPoints(chapter: IChapter): string[] {
+/** PPT 课件页：数字人"对着这一页"讲 script 这段话，讲完自动翻页 */
+interface ISlide {
+  kind: 'cover' | 'concept' | 'flow' | 'practice' | 'summary';
+  title: string;
+  subtitle?: string;
+  bullets?: string[];
+  steps?: string[];
+  task?: string;
+  hasAssignment?: boolean;
+  script: string;
+}
+
+/** 按导师人设取话术 */
+function voice(tutor: ITutor, lines: Record<string, string | undefined> & { default: string }): string {
+  return lines[tutor.id] ?? lines.default;
+}
+
+/** 生成本课的 PPT 课件（原型 mock：按章节标题派生 5 页，参考 reveal.js 的分页/逐条结构） */
+function getLessonSlides(tutor: ITutor, course: ICourse, chapter: IChapter): ISlide[] {
+  const T = chapter.title;
+  const opening = getLectureScript(tutor, chapter, chapter.lessonNo, course.lessonCount);
+
+  const conceptScript = voice(tutor, {
+    'xiao-nuan': `先看这一页的三个要点，别急着背定义。你就记住「${T}」解决什么问题、边界在哪，剩下的我们一点点来～`,
+    'lao-k': `概念部分我不念稿。盯着这三条：解决什么问题、角色怎么接、和相邻概念差在哪，判断标准就在里面。`,
+    'gu-yan': `先建立认知框架：这三条讲清了「${T}」解决什么问题。放到团队里怎么用，下一页流程展开。`,
+    default: `这一页把「${T}」的概念讲清楚：注意每条的适用边界，这是后面避免误用的关键。`,
+  });
+
+  const flowScript = voice(tutor, {
+    'xiao-nuan': `接下来按流程走一遍～从定目标到沉淀结果，四步走完，你对「${T}」就有整体感觉啦。`,
+    'lao-k': `流程这页照着走，四步缺一不可。尤其第三步协作执行，实战项目里最容易出问题。`,
+    'gu-yan': `流程落到团队上就是分工：谁定目标、谁拆解、谁执行、谁验收，对号入座。`,
+    default: `按这四步走：每一步的输出是下一步的输入，实践中最常见的错误就是跳步。`,
+  });
+
+  const practiceScript = voice(tutor, {
+    'xiao-nuan': `轮到你动手啦～${chapter.hasAssignment ? '完成配套练习记得交给我，我会认真批改给你反馈哦' : '在实战项目里找到对应场景动手点一点，试过才算学会'}。`,
+    'lao-k': `动手环节。${chapter.hasAssignment ? '作业别拖，写完就提交，我按工程标准批。' : '去实战项目把对应模块跑一遍，跑不通随时截屏问我。'}`,
+    'gu-yan': `这一页是行动清单：学完这节，回团队先做哪件事，想清楚再动手。`,
+    default: `现在轮到你：${chapter.hasAssignment ? '完成本课作业，导师会逐条批改。' : '对照实战项目演练一遍，加深理解。'}`,
+  });
+
+  const summaryScript = voice(tutor, {
+    'xiao-nuan': `小结一下～这三条记住，这一课就没白学。累的话休息一下再继续，我一直在哦～`,
+    'lao-k': `收尾。三条要点能自己复述出来，这课就算过；复述不出来，翻回去重看。`,
+    'gu-yan': `本课小结：把这三条带回你的管理场景，下周复盘我们再看落地效果。`,
+    default: `本课小结：三条要点构成完整闭环，下一课会在这个基础上继续深入。`,
+  });
+
   return [
-    `${chapter.title}的核心概念与运行原理`,
-    `${chapter.title}在多智能体系统中的典型应用场景`,
-    `动手练习：结合实战项目演练「${chapter.title}」`,
+    {
+      kind: 'cover',
+      title: `第 ${chapter.lessonNo} 课 · ${T}`,
+      subtitle: `${course.title} · 主讲 ${tutor.name}`,
+      script: opening,
+    },
+    {
+      kind: 'concept',
+      title: `核心概念：${T}`,
+      bullets: [
+        `${T} 要解决的核心问题与适用边界`,
+        `关键角色与输入输出：谁发起、谁承接、产出什么`,
+        `常见误区：与相邻概念的区别和联系`,
+      ],
+      script: conceptScript,
+    },
+    {
+      kind: 'flow',
+      title: `「${T}」运行流程`,
+      steps: ['明确目标与输入', '按规则拆解任务', '智能体协作执行', '校验结果并沉淀'],
+      script: flowScript,
+    },
+    {
+      kind: 'practice',
+      title: '动手实战',
+      task: chapter.hasAssignment
+        ? `完成「${T}」配套练习并提交，导师将逐条批改反馈`
+        : `跟随讲解，在实战项目中找到「${T}」对应场景并演练一遍`,
+      hasAssignment: chapter.hasAssignment,
+      script: practiceScript,
+    },
+    {
+      kind: 'summary',
+      title: '本课小结',
+      bullets: [
+        `${T}：概念与边界已建立框架`,
+        `四步流程可直接套用到实战项目`,
+        chapter.hasAssignment ? `作业提交后等待导师批改反馈` : `完成场景演练，沉淀个人学习笔记`,
+      ],
+      script: summaryScript,
+    },
   ];
 }
 
@@ -375,7 +463,16 @@ function LearningRoom({ courseId }: { courseId: string }) {
   );
 }
 
-/** 左：数字人课堂（数字人出镜 + 课程内容板书同步播放 + 字幕控制条） */
+/** PPT 页类型 → 舞台左上角页签 */
+const SLIDE_KIND_LABEL: Record<ISlide['kind'], string> = {
+  cover: '课程封面',
+  concept: '核心概念',
+  flow: '运行流程',
+  practice: '动手实战',
+  summary: '本课小结',
+};
+
+/** 左：数字人课堂（PPT 课件播放 + 画中画数字人讲解 + 打字机字幕 + 讲完自动翻页） */
 function DigitalHumanPanel({
   tutor,
   course,
@@ -395,38 +492,68 @@ function DigitalHumanPanel({
   onReplay: () => void;
   onCompleteLesson: () => void;
 }) {
-  const [speaking, setSpeaking] = useState(true);
-  // 打字机效果：讲解词逐字出现，模拟数字人在"说话"
+  const slides = useMemo(() => getLessonSlides(tutor, course, chapter), [tutor, course, chapter]);
+  const [slideIndex, setSlideIndex] = useState(0);
   const [typedCount, setTypedCount] = useState(0);
-  const script = getLectureScript(tutor, chapter, chapter.lessonNo, course.lessonCount);
-  const points = getLessonPoints(chapter);
+  const [speaking, setSpeaking] = useState(true);
   // 完成本课的即时视觉反馈：按钮短暂变绿
   const [flashDone, setFlashDone] = useState(false);
 
-  // 切换课次 / 重新讲解时，从头开始播放
-  useEffect(() => {
-    setTypedCount(0);
-  }, [script, lectureKey]);
+  const slide = slides[Math.min(slideIndex, slides.length - 1)];
+  const script = slide.script;
+  const isLastSlide = slideIndex >= slides.length - 1;
+  const isTyping = speaking && typedCount < script.length;
 
+  // 切换课次 / 重新讲解时，回到第一页从头播放
+  useEffect(() => {
+    setSlideIndex(0);
+    setTypedCount(0);
+    setSpeaking(true);
+  }, [chapter.id, lectureKey]);
+
+  // 打字机：逐字输出当前页讲解词，模拟数字人"说话"
   useEffect(() => {
     if (!speaking) return;
     const timer = setInterval(() => {
-      setTypedCount((n) => {
-        if (n >= script.length) {
-          clearInterval(timer);
-          return n;
-        }
-        return n + 1;
-      });
-    }, 45);
+      setTypedCount((n) => (n >= script.length ? n : n + 1));
+    }, 42);
     return () => clearInterval(timer);
-  }, [speaking, script, lectureKey]);
+  }, [speaking, script, slideIndex]);
 
-  const isTyping = speaking && typedCount < script.length;
-  // 板书联动：按讲解进度依次点亮对应要点，模拟"讲到哪、亮到哪"
-  const playRatio = script.length ? typedCount / script.length : 0;
-  const activePoint =
-    typedCount === 0 ? -1 : playRatio < 0.34 ? 0 : playRatio < 0.67 ? 1 : 2;
+  // 当前页讲完 → 停顿 1 秒自动翻下一页；最后一页停住
+  useEffect(() => {
+    if (!speaking || isLastSlide || typedCount < script.length) return;
+    const timer = setTimeout(() => {
+      setSlideIndex((i) => Math.min(i + 1, slides.length - 1));
+      setTypedCount(0);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [speaking, typedCount, script, isLastSlide, slides.length]);
+
+  const goTo = (i: number) => {
+    const next = Math.max(0, Math.min(i, slides.length - 1));
+    if (next === slideIndex) return;
+    setSlideIndex(next);
+    setTypedCount(0);
+    setSpeaking(true);
+  };
+
+  // 键盘 ← → 翻页（输入框聚焦时忽略）
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === 'ArrowLeft') goTo(slideIndex - 1);
+      if (e.key === 'ArrowRight') goTo(slideIndex + 1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [slideIndex, slides.length]);
 
   const handleComplete = () => {
     onCompleteLesson();
@@ -443,114 +570,184 @@ function DigitalHumanPanel({
       <div className="px-5 py-3 flex items-center justify-between gap-3 border-b border-white/10">
         <div className="flex items-center gap-2 text-white/90 text-sm font-medium">
           <span className="size-2 rounded-full bg-success animate-pulse" />
-          数字人课堂
+          数字人课堂 · PPT 讲解中
         </div>
         <span className="text-xs text-white/60 truncate">
           {course.title} · {tutor.name}
         </span>
       </div>
 
-      {/* 主体：左数字人出镜 + 右课程内容板书 */}
-      <div className="flex-1 flex flex-col sm:flex-row items-center sm:items-center gap-5 px-5 py-5">
-        {/* 数字人出镜 */}
-        <div className="shrink-0 flex flex-col items-center">
-          <div className="relative">
-            {speaking && (
-              <span
-                className="absolute -inset-1.5 rounded-full animate-ping opacity-25 pointer-events-none"
-                style={{ background: `linear-gradient(135deg, ${tutor.gradient[0]}, ${tutor.gradient[1]})` }}
-              />
-            )}
-            <div
-              className="relative size-32 sm:size-36 rounded-full overflow-hidden border-4 border-white/25 shadow-xl"
-              style={{ background: `linear-gradient(135deg, ${tutor.gradient[0]}, ${tutor.gradient[1]})` }}
-            >
-              <img
-                src={tutor.portrait}
-                alt={`${tutor.name} 数字人形象`}
-                draggable={false}
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-                className={`w-full h-full object-cover object-top transition-transform duration-700 ${
-                  speaking ? 'scale-105' : 'scale-100'
-                }`}
-              />
-            </div>
-            <span className="absolute right-2 bottom-2 size-4 rounded-full bg-success border-2 border-white/80" />
-          </div>
-
-          {/* 声波动效 */}
-          <div className="flex items-end gap-1 h-5 mt-3" aria-hidden={true}>
-            {[0, 1, 2, 3, 4].map((i) => (
-              <span
-                key={i}
-                className={`w-1 rounded-full bg-accent transition-all ${
-                  speaking ? 'animate-pulse' : 'opacity-30'
-                }`}
-                style={{
-                  height: speaking ? `${8 + ((i * 7) % 12)}px` : '4px',
-                  animationDelay: `${i * 0.12}s`,
-                  animationDuration: '0.9s',
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* 课程内容板书：标题 + 要点（讲到哪亮到哪） */}
-        <div className="flex-1 min-w-0 w-full">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <h2 className="text-lg font-bold text-white leading-snug flex items-center gap-2 min-w-0">
-              <BookOpenText className="size-5 text-accent shrink-0" />
-              <span className="truncate">
-                第 {chapter.lessonNo} 课 · {chapter.title}
-              </span>
-            </h2>
-            <span className="shrink-0 inline-flex items-center gap-1 text-xs text-white/60">
-              <Clock className="size-3.5" />
-              {chapter.duration}
+      {/* PPT 舞台：深色包边 + 白色幻灯片 */}
+      <div className="px-5 pt-5">
+        <div className="rounded-xl bg-[#0d1b2e] p-2 sm:p-2.5 shadow-inner">
+          <div
+            key={`${slideIndex}-${lectureKey}`}
+            className="relative rounded-lg bg-white shadow-lg min-h-[320px] sm:min-h-[380px] overflow-hidden flex animate-in fade-in slide-in-from-right-4 duration-300"
+          >
+            {/* 页签 + 页码 */}
+            <span className="absolute left-5 top-3 z-10 text-[10px] font-semibold tracking-[0.2em] text-muted-foreground/50">
+              {SLIDE_KIND_LABEL[slide.kind]}
             </span>
-          </div>
+            <span className="absolute right-5 top-3 z-10 text-[10px] text-muted-foreground/50 tabular-nums">
+              {slideIndex + 1} / {slides.length}
+            </span>
 
-          <ol className="space-y-2">
-            {points.map((point, i) => (
-              <li
-                key={i}
-                className={`flex items-start gap-3 rounded-xl border px-3.5 py-2.5 transition-all duration-500 ${
-                  i === activePoint
-                    ? 'bg-white/15 border-accent/60 shadow-[0_0_0_1px_rgba(232,119,34,0.25)]'
-                    : i < activePoint
-                    ? 'bg-white/[0.06] border-white/10 opacity-70'
-                    : 'bg-white/[0.06] border-white/10 opacity-45'
-                }`}
-              >
-                <span
-                  className={`shrink-0 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center mt-0.5 transition-colors ${
-                    i === activePoint
-                      ? 'bg-accent text-white'
-                      : i < activePoint
-                      ? 'bg-success/25 text-success'
-                      : 'bg-white/10 text-white/60'
-                  }`}
+            {/* 幻灯片内容（底部留白给画中画数字人） */}
+            <div className="flex-1 flex flex-col px-6 sm:px-8 pt-9 pb-24 min-w-0">
+              {slide.kind === 'cover' ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center gap-3">
+                  <span className="text-[10px] font-semibold tracking-[0.25em] text-accent/80">
+                    AGENTTUTOR · 数字人课堂
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-bold text-foreground leading-snug">
+                    {slide.title}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">{slide.subtitle}</p>
+                  <span className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-secondary px-3 py-1 rounded-full">
+                    <Clock className="size-3.5" />
+                    本节时长 {chapter.duration}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <h2 className="text-lg font-bold text-foreground leading-snug flex items-center gap-2 mb-4 min-w-0">
+                    {slide.kind === 'concept' && <BookOpenText className="size-5 text-accent shrink-0" />}
+                    {slide.kind === 'flow' && <ListChecks className="size-5 text-accent shrink-0" />}
+                    {slide.kind === 'practice' && <FileText className="size-5 text-accent shrink-0" />}
+                    {slide.kind === 'summary' && <CheckCircle2 className="size-5 text-success shrink-0" />}
+                    <span className="truncate">{slide.title}</span>
+                  </h2>
+
+                  {slide.kind === 'concept' && (
+                    <ol className="space-y-2.5">
+                      {slide.bullets?.map((b, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-3 rounded-xl border border-border/50 bg-secondary/40 px-4 py-3"
+                        >
+                          <span className="shrink-0 size-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center mt-0.5">
+                            {i + 1}
+                          </span>
+                          <span className="text-sm text-foreground/90 leading-relaxed">{b}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+
+                  {slide.kind === 'flow' && (
+                    <div className="flex-1 flex items-center">
+                      <ol className="w-full flex items-center gap-1.5 flex-wrap">
+                        {slide.steps?.map((s, i) => (
+                          <li key={i} className="flex items-center gap-1.5">
+                            <div className="rounded-xl border border-border/50 bg-secondary/40 px-3.5 py-3 text-center min-w-[96px]">
+                              <div className="text-[10px] text-accent font-semibold mb-0.5">
+                                STEP {i + 1}
+                              </div>
+                              <div className="text-sm text-foreground/90 font-medium leading-snug">{s}</div>
+                            </div>
+                            {i < (slide.steps?.length ?? 0) - 1 && (
+                              <ChevronRight className="size-4 text-muted-foreground/50 shrink-0" />
+                            )}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+
+                  {slide.kind === 'practice' && (
+                    <div className="flex-1 flex items-center">
+                      <div
+                        className={`w-full rounded-xl border px-5 py-5 ${
+                          slide.hasAssignment
+                            ? 'border-accent/40 bg-accent/[0.06]'
+                            : 'border-border/50 bg-secondary/40'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileText className="size-4 text-accent" />
+                          <span className="text-xs font-semibold text-accent">
+                            {slide.hasAssignment ? '本课含作业' : '课堂演练'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-foreground/90 leading-relaxed">{slide.task}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {slide.kind === 'summary' && (
+                    <ul className="space-y-2.5">
+                      {slide.bullets?.map((b, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-3 rounded-xl border border-border/50 bg-secondary/40 px-4 py-3"
+                        >
+                          <CheckCircle2 className="size-5 text-success shrink-0 mt-0.5" />
+                          <span className="text-sm text-foreground/90 leading-relaxed">{b}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* 画中画数字人：叠在幻灯片右下角 */}
+            <div className="absolute right-4 bottom-4 z-10 flex items-end gap-2 pointer-events-none select-none">
+              <div className="flex items-end gap-0.5 h-6 mb-1" aria-hidden={true}>
+                {[0, 1, 2, 3].map((i) => (
+                  <span
+                    key={i}
+                    className={`w-0.5 rounded-full bg-accent ${speaking ? 'animate-pulse' : 'opacity-30'}`}
+                    style={{
+                      height: speaking ? `${8 + ((i * 5) % 10)}px` : '4px',
+                      animationDelay: `${i * 0.12}s`,
+                      animationDuration: '0.9s',
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="relative">
+                {speaking && (
+                  <span
+                    className="absolute -inset-1 rounded-full animate-ping opacity-25 pointer-events-none"
+                    style={{
+                      background: `linear-gradient(135deg, ${tutor.gradient[0]}, ${tutor.gradient[1]})`,
+                    }}
+                  />
+                )}
+                <div
+                  className="relative size-20 sm:size-24 rounded-full overflow-hidden border-[3px] border-white shadow-xl"
+                  style={{
+                    background: `linear-gradient(135deg, ${tutor.gradient[0]}, ${tutor.gradient[1]})`,
+                  }}
                 >
-                  {i < activePoint ? <CheckCircle2 className="size-3.5" /> : i + 1}
-                </span>
-                <span className="text-sm text-white/90 leading-relaxed">{point}</span>
-              </li>
-            ))}
-          </ol>
+                  <img
+                    src={tutor.portrait}
+                    alt={`${tutor.name} 数字人讲解中`}
+                    draggable={false}
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                    className={`w-full h-full object-cover object-top transition-transform duration-700 ${
+                      speaking ? 'scale-105' : 'scale-100'
+                    }`}
+                  />
+                </div>
+                <span className="absolute right-0.5 bottom-0.5 size-3 rounded-full bg-success border-2 border-white" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 字幕条：打字机讲解词 */}
-      <div className="px-5 pb-1">
-        <div className="text-xs text-white/60 mb-1.5">
-          正在讲解 · 第 {chapter.lessonNo} / {course.lessonCount} 课
+      {/* 字幕条：打字机讲解当前页 */}
+      <div className="px-5 pt-3">
+        <div className="text-xs text-white/60 mb-1.5 truncate">
+          正在讲解 · 第 {viewingLessonNo} / {course.lessonCount} 课 · 「{slide.title}」
         </div>
         <div
-          key={lectureKey}
-          className="min-h-[68px] rounded-xl bg-white/10 border border-white/15 px-4 py-3 text-sm leading-relaxed text-white/90"
+          key={`cap-${slideIndex}-${lectureKey}`}
+          className="min-h-[64px] rounded-xl bg-white/10 border border-white/15 px-4 py-3 text-sm leading-relaxed text-white/90"
         >
           {script.slice(0, typedCount)}
           {isTyping && (
@@ -559,8 +756,39 @@ function DigitalHumanPanel({
         </div>
       </div>
 
-      {/* 控制条：播放控制 + 课程进度 + 完成本课 */}
+      {/* 控制条：翻页 + 播放控制 + 课程进度 + 完成本课 */}
       <div className="px-5 py-4 flex items-center gap-3 flex-wrap border-t border-white/10 mt-4">
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => goTo(slideIndex - 1)}
+            disabled={slideIndex === 0}
+            aria-label="上一页"
+            className="size-9 rounded-full bg-white/10 border border-white/15 text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center"
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+          <div className="flex items-center gap-1.5 px-1">
+            {slides.map((s, i) => (
+              <button
+                key={s.kind}
+                onClick={() => goTo(i)}
+                aria-label={`跳到第 ${i + 1} 页`}
+                className={`h-1.5 rounded-full transition-all duration-200 ${
+                  i === slideIndex ? 'w-5 bg-accent' : 'w-1.5 bg-white/30 hover:bg-white/50'
+                }`}
+              />
+            ))}
+          </div>
+          <button
+            onClick={() => goTo(slideIndex + 1)}
+            disabled={isLastSlide}
+            aria-label="下一页"
+            className="size-9 rounded-full bg-white/10 border border-white/15 text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center"
+          >
+            <ChevronRight className="size-4" />
+          </button>
+        </div>
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => setSpeaking((v) => !v)}
