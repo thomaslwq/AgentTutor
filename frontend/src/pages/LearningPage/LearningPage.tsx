@@ -249,8 +249,6 @@ function LearningRoom({ courseId }: { courseId: string }) {
   const [isTutorTyping, setIsTutorTyping] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackParent] = useAutoAnimate({ duration: 300 });
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const override = course ? state.courseProgress[course.id] : undefined;
   const currentLesson = override?.currentLesson ?? course?.currentLesson ?? 1;
@@ -275,7 +273,6 @@ function LearningRoom({ courseId }: { courseId: string }) {
       const container = el?.parentElement;
       if (container) container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
     };
-    scrollToEnd(chatEndRef.current);
     scrollToEnd(drawerChatEndRef.current);
   }, [messages, isTutorTyping]);
 
@@ -370,10 +367,8 @@ function LearningRoom({ courseId }: { courseId: string }) {
   return (
     <div className="w-full py-6 px-4 md:px-6 lg:px-8">
       <div className="max-w-[1400px] mx-auto">
-        {/* 主区：左 = 数字人课堂 + 章节 + 作业；右 = 实时互动 */}
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-5 items-start">
-          {/* 左列 */}
-          <div className="space-y-5 min-w-0">
+        {/* 主区：数字人课堂 + 章节 + 作业（实时互动收进「向导师提问」抽屉） */}
+        <div className="space-y-5 min-w-0">
             {/* 数字人课堂（数字人 + 课程内容同步播放） */}
             <DigitalHumanPanel
               tutor={tutor}
@@ -471,21 +466,6 @@ function LearningRoom({ courseId }: { courseId: string }) {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* 右列：实时互动对话 */}
-          <ChatDock
-            tutor={tutor}
-            course={course}
-            messages={messages}
-            isTutorTyping={isTutorTyping}
-            inputValue={inputValue}
-            onInputChange={setInputValue}
-            onSend={handleSend}
-            onQuickAction={send}
-            chatEndRef={chatEndRef}
-            inputRef={inputRef}
-          />
         </div>
       </div>
     </div>
