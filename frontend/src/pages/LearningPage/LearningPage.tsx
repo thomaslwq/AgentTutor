@@ -269,10 +269,14 @@ function LearningRoom({ courseId }: { courseId: string }) {
     ]);
   }, [tutor?.id, tutor?.greeting]);
 
-  // 新消息自动滚动到底部（右栏对话 + 课堂抽屉对话）
+  // 新消息自动滚动到底部（仅滚动消息容器自身，避免页面跟着滚动）
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    drawerChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const scrollToEnd = (el: HTMLDivElement | null) => {
+      const container = el?.parentElement;
+      if (container) container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    };
+    scrollToEnd(chatEndRef.current);
+    scrollToEnd(drawerChatEndRef.current);
   }, [messages, isTutorTyping]);
 
   // 守卫：课程不存在 / 未购买 / 未选导师
@@ -1043,9 +1047,6 @@ function ChatDock({
             </p>
           </div>
         </div>
-        <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/10 text-accent text-xs font-medium shrink-0">
-          AI 实时答疑
-        </span>
       </div>
 
       {/* 消息流 */}
