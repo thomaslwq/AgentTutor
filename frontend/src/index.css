@@ -4,3 +4,31 @@
 @import "tw-animate-css";
 @import "./tailwind-theme.css";
 @import "./typography.css";
+
+/* ===== 数字人课堂动效 ===== */
+/* 口型同步：说话时头像轻微"咀嚼"式缩放（配合打字机逐字讲解） */
+@keyframes at-talking {
+  0%, 100% { transform: scale(1, 1); }
+  20% { transform: scale(1.02, 0.98); }
+  40% { transform: scale(0.99, 1.015); }
+  60% { transform: scale(1.015, 0.99); }
+  80% { transform: scale(0.995, 1.008); }
+}
+.at-talking { animation: at-talking 0.72s ease-in-out infinite; }
+
+/* 手势：迎宾挥手（循环摆动） */
+@keyframes at-wave {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-20deg); }
+  75% { transform: rotate(12deg); }
+}
+.at-wave { animation: at-wave 0.9s ease-in-out infinite; transform-origin: 20% 90%; }
+
+/* 手势：翻页讲解指向（滑入指向课件内容后淡出） */
+@keyframes at-present {
+  0% { opacity: 0; transform: translate(10px, 8px) rotate(28deg); }
+  18% { opacity: 1; }
+  70% { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+  100% { opacity: 0; transform: translate(-2px, -6px) rotate(-4deg); }
+}
+.at-present { animation: at-present 2.4s ease-out forwards; }

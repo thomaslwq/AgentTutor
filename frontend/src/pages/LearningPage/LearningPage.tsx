@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, FormEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, FormEvent, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
@@ -21,6 +21,10 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  MessageCircle,
+  X,
+  Hand,
+  ThumbsUp,
 } from 'lucide-react';
 
 import { MOCK_COURSES, type ICourse, type IChapter } from '@/data/courses';
@@ -253,6 +257,9 @@ function LearningRoom({ courseId }: { courseId: string }) {
   const progressPercent = override?.progressPercent ?? course?.progress ?? 0;
   const [viewingLessonNo, setViewingLessonNo] = useState(currentLesson);
   const [lectureKey, setLectureKey] = useState(0); // 重新讲解时触发解说词淡入
+  const [chatOpen, setChatOpen] = useState(false); // 课堂内嵌对话抽屉
+  const drawerChatEndRef = useRef<HTMLDivElement>(null);
+  const drawerInputRef = useRef<HTMLInputElement>(null);
 
   // 进入课堂 / 更换导师时，重置为该导师的开场白
   useEffect(() => {
@@ -262,9 +269,10 @@ function LearningRoom({ courseId }: { courseId: string }) {
     ]);
   }, [tutor?.id, tutor?.greeting]);
 
-  // 新消息自动滚动到底部
+  // 新消息自动滚动到底部（右栏对话 + 课堂抽屉对话）
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    drawerChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTutorTyping]);
 
   // 守卫：课程不存在 / 未购买 / 未选导师
@@ -372,6 +380,23 @@ function LearningRoom({ courseId }: { courseId: string }) {
               lectureKey={lectureKey}
               onReplay={() => setLectureKey((k) => k + 1)}
               onCompleteLesson={handleCompleteLesson}
+              chatOpen={chatOpen}
+              onToggleChat={() => setChatOpen((v) => !v)}
+              chatSlot={
+                <ChatDock
+                  compact
+                  tutor={tutor}
+                  course={course}
+                  messages={messages}
+                  isTutorTyping={isTutorTyping}
+                  inputValue={inputValue}
+                  onInputChange={setInputValue}
+                  onSend={handleSend}
+                  onQuickAction={send}
+                  chatEndRef={drawerChatEndRef}
+                  inputRef={drawerInputRef}
+                />
+              }
             />
 
             {/* 课程章节（横向铺开） */}
@@ -482,6 +507,9 @@ function DigitalHumanPanel({
   lectureKey,
   onReplay,
   onCompleteLesson,
+  chatOpen,
+  onToggleChat,
+  chatSlot,
 }: {
   tutor: ITutor;
   course: ICourse;
@@ -491,6 +519,11 @@ function DigitalHumanPanel({
   lectureKey: number;
   onReplay: () => void;
   onCompleteLesson: () => void;
+  /** 对话抽屉开关（悬浮提问入口） */
+  chatOpen: boolean;
+  onToggleChat: () => void;
+  /** 课堂内嵌对话面板（复用 ChatDock） */
+  chatSlot: ReactNode;
 }) {
   const slides = useMemo(() => getLessonSlides(tutor, course, chapter), [tutor, course, chapter]);
   const [slideIndex, setSlideIndex] = useState(0);
@@ -563,18 +596,27 @@ function DigitalHumanPanel({
 
   return (
     <div
-      className="rounded-2xl shadow-sm overflow-hidden flex flex-col"
+      className="relative rounded-2xl shadow-sm overflow-hidden flex flex-col"
       style={{ background: 'linear-gradient(160deg, #1E3A5F 0%, #2a4a73 55%, #4a3f63 100%)' }}
     >
-      {/* 面板头：课堂名 + 课程信息 */}
+      {/* 面板头：课堂名 + 悬浮提问入口 + 课程信息 */}
       <div className="px-5 py-3 flex items-center justify-between gap-3 border-b border-white/10">
         <div className="flex items-center gap-2 text-white/90 text-sm font-medium">
           <span className="size-2 rounded-full bg-success animate-pulse" />
           数字人课堂 · PPT 讲解中
         </div>
-        <span className="text-xs text-white/60 truncate">
-          {course.title} · {tutor.name}
-        </span>
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-xs text-white/60 truncate">
+            {course.title} · {tutor.name}
+          </span>
+          <button
+            onClick={onToggleChat}
+            className="shrink-0 h-8 px-3.5 rounded-full bg-accent text-white text-xs font-medium hover:bg-accent/90 transition-colors inline-flex items-center gap-1.5 shadow-md focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none"
+          >
+            {chatOpen ? <X className="size-3.5" /> : <MessageCircle className="size-3.5" />}
+            {chatOpen ? '收起对话' : '向导师提问'}
+          </button>
+        </div>
       </div>
 
       {/* PPT 舞台：深色包边 + 白色幻灯片 */}
@@ -691,6 +733,28 @@ function DigitalHumanPanel({
               )}
             </div>
 
+            {/* 手势动画：封面页挥手迎宾，其余页翻页后指向讲解内容 */}
+            {isTyping && (
+              <div
+                key={`hand-${slideIndex}`}
+                aria-hidden={true}
+                className={`absolute z-10 pointer-events-none select-none ${
+                  slide.kind === 'cover' ? 'right-28 bottom-24 at-wave' : 'right-24 bottom-28 at-present'
+                }`}
+              >
+                <Hand className="size-6 text-accent drop-shadow-md" />
+              </div>
+            )}
+            {/* 完成本课：点赞手势 */}
+            {flashDone && (
+              <div
+                aria-hidden={true}
+                className="absolute right-24 bottom-28 z-10 pointer-events-none select-none animate-in fade-in zoom-in-50 duration-300"
+              >
+                <ThumbsUp className="size-6 text-success drop-shadow-md" />
+              </div>
+            )}
+
             {/* 画中画数字人：叠在幻灯片右下角 */}
             <div className="absolute right-4 bottom-4 z-10 flex items-end gap-2 pointer-events-none select-none">
               <div className="flex items-end gap-0.5 h-6 mb-1" aria-hidden={true}>
@@ -729,7 +793,7 @@ function DigitalHumanPanel({
                       e.currentTarget.style.display = 'none';
                     }}
                     className={`w-full h-full object-cover object-top transition-transform duration-700 ${
-                      speaking ? 'scale-105' : 'scale-100'
+                      isTyping ? 'at-talking' : speaking ? 'scale-105' : 'scale-100'
                     }`}
                   />
                 </div>
@@ -829,6 +893,19 @@ function DigitalHumanPanel({
           {flashDone ? '已完成，太棒了！' : '完成本课'}
         </button>
       </div>
+
+      {/* 课堂内嵌对话抽屉：悬浮在 PPT 右侧，随开随问 */}
+      {chatOpen && (
+        <div className="absolute inset-0 z-30">
+          <div
+            className="absolute inset-0 bg-[#0a1626]/45 animate-in fade-in duration-200"
+            onClick={onToggleChat}
+          />
+          <div className="absolute inset-y-3 right-3 left-3 sm:left-auto sm:w-[380px] animate-in fade-in slide-in-from-right-5 duration-300">
+            {chatSlot}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -926,6 +1003,7 @@ function ChatDock({
   onQuickAction,
   chatEndRef,
   inputRef,
+  compact = false,
 }: {
   tutor: ITutor;
   course: ICourse;
@@ -937,9 +1015,17 @@ function ChatDock({
   onQuickAction: (query: string) => void;
   chatEndRef: React.RefObject<HTMLDivElement | null>;
   inputRef: React.RefObject<HTMLInputElement | null>;
+  /** 紧凑模式：嵌入课堂对话抽屉时撑满容器高度 */
+  compact?: boolean;
 }) {
   return (
-    <div className="rounded-2xl bg-card border border-border/40 shadow-sm overflow-hidden xl:sticky xl:top-20">
+    <div
+      className={
+        compact
+          ? 'rounded-2xl bg-card border border-border/40 shadow-sm overflow-hidden flex flex-col h-full min-h-0'
+          : 'rounded-2xl bg-card border border-border/40 shadow-sm overflow-hidden xl:sticky xl:top-20'
+      }
+    >
       {/* 对话头 */}
       <div className="px-5 py-3 border-b border-border/30 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -963,7 +1049,13 @@ function ChatDock({
       </div>
 
       {/* 消息流 */}
-      <div className="px-4 py-4 space-y-4 h-[320px] xl:h-[560px] overflow-y-auto bg-background/30">
+      <div
+        className={
+          compact
+            ? 'px-4 py-4 space-y-4 flex-1 min-h-0 overflow-y-auto bg-background/30'
+            : 'px-4 py-4 space-y-4 h-[320px] xl:h-[560px] overflow-y-auto bg-background/30'
+        }
+      >
         {messages.map((msg) => (
           <ChatMessage
             key={msg.id}
